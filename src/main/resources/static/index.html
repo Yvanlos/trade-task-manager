@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trade Task Manager</title>
+
+    <!-- 1. CSS-Styling: Definiert nur das dunkle Design und Layout der Seite -->
+    <style>
+        body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc;
+            max-width: 800px; margin: 40px auto; padding: 0 20px; }
+        h1 { color: #38bdf8; }
+        form { display: grid; gap: 10px; background: #1e293b; padding: 20px; border-radius:
+                8px; margin-bottom: 24px; }
+        input, select, button { padding: 10px; border-radius: 6px; border: 1px solid #334155;
+            background: #0f172a; color: #f8fafc; }
+        button { background: #0284c7; border: none; font-weight: bold; cursor: pointer; }
+        button:hover { background: #0369a1; }
+        .task { display: flex; justify-content: space-between; align-items: center;
+            background: #1e293b; padding: 15px; border-radius: 8px; margin-bottom: 10px;
+            border-left: 4px solid #38bdf8; }
+        .badge { padding: 3px 8px; border-radius: 4px; font-size: 12px; background: #334155;
+            margin-left: 8px; }
+        .actions button { margin-left: 6px; padding: 6px 10px; font-size: 12px; }
+        .btn-done { background: #16a34a; }
+        .btn-del { background: #dc2626; }
+    </style>
+</head>
+<body>
+<h1>Trade Task Manager</h1>
+
+<!-- 2. Eingabeformular für neue Trading-Aufgaben -->
+<form id="taskForm">
+    <input type="text" id="title" placeholder="Aufgabentitel (z. B. DAX Eröffnung prüfen)" required>
+    <input type="text" id="description" placeholder="Beschreibung (optional)">
+    <select id="priority">
+        <option value="LOW">Priorität: Niedrig (LOW)</option>
+        <option value="MEDIUM" selected>Priorität: Mittel (MEDIUM)</option>
+        <option value="HIGH">Priorität: Hoch (HIGH)</option>
+    </select>
+    <button type="submit">Aufgabe anlegen</button>
+</form>
+
+<!-- 3. Leerer Container: Hier fügt JavaScript alle Aufgaben aus PostgreSQL ein -->
+<div id="taskList"></div>
+
+<!-- 4. JavaScript-Logik: Verbindet den Browser über fetch() + JSON mit der Spring-Boot-REST-API -->
+<script>
+    /* Basis-URL des TradeTaskControllers */
+    const API = '/api/tasks';
+
+    /* Ruft GET /api/tasks auf und baut für jede Aufgabe eine HTML-Karte (data-cy dient später für Cypress-Tests) */
+    async function loadTasks() {
+        const res = await fetch(API);
+        const tasks = await res.json();
+        const list = document.getElementById('taskList');
+        list.innerHTML = tasks.map(t => `
+                <div class="task" data-cy="task-item">
+                    <div>
+                        <strong>${t.title}</strong>
+                        <span class="badge">${t.priority}</span>
+                        <span class="badge">${t.status}</span>
+                        <div style="color:#94a3b8; font-size: 14px; margin-top: 4px;">${t.description || ''}</div>
+                    </div>
+                    <div class="actions">
+                        ${t.status !== 'DONE' ? `<button class="btn-done" onclick="markDone(${t.id}, '${t.title}', '${t.description || ''}', '${t.priority}')">Erledigt</button>` : ''}
+                        <button class="btn-del" onclick="deleteTask(${t.id})">Löschen</button>
+                    </div>
+                </div>
+            `).join('');
+    }
+
+    /* Fängt das Absenden des Formulars ab und sendet die Daten per HTTP-POST an createTask() */
+    document.getElementById('taskForm').addEventListener('submit', async (e) => {
+        e.preventDefault(); // Verhindert komplettes Neuladen der Seite
+        await fetch(API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                title: document.getElementById('title').value,
+                description: document.getElementById('description').value,
+                priority: document.getElementById('priority').value,
+                status: 'OPEN'
+            })
+        });
+        e.target.reset(); // Formularfelder leeren
+        loadTasks();      // Aufgabenliste aktualisieren
+    });
+
+    /* Sendet eine HTTP-PUT-Anfrage an updateTask(), um den Status auf DONE zu setzen */
+    async function markDone(id, title, description, priority) {
+        await fetch(`${API}/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, description, priority, status: 'DONE' })
+        });
+        loadTasks();
+    }
+
+    /* Sendet eine HTTP-DELETE-Anfrage an deleteTask(), um die Aufgabe aus PostgreSQL zu löschen */
+    async function deleteTask(id) {
+        await fetch(`${API}/${id}`, { method: 'DELETE' });
+        loadTasks();
+    }
+
+    /* Lädt beim Öffnen der Seite sofort alle vorhandenen Aufgaben aus der Datenbank */
+    loadTasks();
+</script>
+</body>
+</html>
