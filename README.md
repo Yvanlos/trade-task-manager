@@ -1,12 +1,11 @@
 # Trade Task Manager
 
-[![Trade Task Manager CI/CD Pipeline](https://github.com)](https://github.com)
-![Java](https://shields.io)
-![Spring Boot](https://shields.io)
-![PostgreSQL](https://shields.io)
-![Docker](https://shields.io)
-![Cypress](https://shields.io)
-![JMeter](https://shields.io)
+![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-3-green?logo=springboot)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql)
+![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
+![Cypress](https://img.shields.io/badge/Cypress-E2E-17202C?logo=cypress)
+![JMeter](https://img.shields.io/badge/Apache-JMeter-D22128)
 
 Full-Stack Trade Task Management application built with **Java 21**, **Spring Boot**, and **PostgreSQL**, engineered with a multi-layered **Automated Testing Strategy** (**API & Native SQL White-Box Integration Tests**, **Cypress E2E UI Tests**, **Apache JMeter Performance Tests**) and a **GitHub Actions CI/CD** pipeline.
 
