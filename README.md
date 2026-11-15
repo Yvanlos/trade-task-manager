@@ -21,12 +21,8 @@ Full-Stack Trade Task Management application built with **Java 21**, **Spring Bo
 ### 1. MVC & Layered Architecture
 The backend follows a clean layered architecture separating HTTP routing, data persistence, and database execution:
 
-### 1. MVC & Layered Architecture
-The backend follows a clean layered architecture separating HTTP routing, data persistence, and database execution:
-
-## Architecture
-
 [![Interactive Architecture Diagram](https://gitdiagram.com/yvanlos/trade-task-manager/diagram.png)](https://gitdiagram.com/yvanlos/trade-task-manager)
+
 ### 2. Database Schema (`PostgreSQL`)
 All trade tasks are persisted in the `trade_tasks` table using persistent Docker volumes:
 
