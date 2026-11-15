@@ -1,8 +1,7 @@
 # Trade Task Manager
 
 ![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3-green?logo=springboot)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.1.2-6DB33F?logo=springboot)![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?logo=postgresql)
 ![Docker](https://img.shields.io/badge/Docker-Compose-blue?logo=docker)
 ![Cypress](https://img.shields.io/badge/Cypress-E2E-17202C?logo=cypress)
 ![JMeter](https://img.shields.io/badge/Apache-JMeter-D22128)
