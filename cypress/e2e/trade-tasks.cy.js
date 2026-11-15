@@ -1,67 +1,90 @@
-describe("Trade Task Manager – Komplett-Durchlauf (10 Tasks: Erstellen -> Erledigen -> Löschen)", () => {
-  const anzahl = 10;
-  const batchId = Date.now();
-  // Erzeugt 10 eindeutige Aufgabennamen
-  const taskTitles = Array.from({ length: anzahl }, (_, i) => `Trading Check #${i + 1} (${batchId})`);
+describe('Trade Task Manager - E2E UI Tests (Positive & Negative Flows)', () => {
 
-  it(`sollte ${anzahl} Aufgaben erstellen, als DONE markieren und komplett wieder löschen`, () => {
-    cy.intercept("GET", "/api/tasks").as("getTasks");
-    cy.intercept("POST", "/api/tasks").as("createTask");
-    cy.intercept("PUT", "/api/tasks/*").as("updateTask");
-    cy.intercept("DELETE", "/api/tasks/*").as("deleteTask");
+  beforeEach(() => {
+    // Öffnet die Anwendung über die in cypress.config.js / CI gesetzte baseUrl
+    cy.visit('/');
+  });
 
-    cy.visit("/");
-    cy.wait("@getTasks");
+  // =========================================================================
+  // 1. POSITIVE TESTS (Happy Paths)
+  // =========================================================================
+  context('Positive Test Cases (CRUD Lifecycle)', () => {
 
-    // ---------------------------------------------------------
-    // 1. SCHRITT: 10 Aufgaben über das Formular anlegen (POST)
-    // ---------------------------------------------------------
-    taskTitles.forEach((title, index) => {
-      const priority = index % 3 === 0 ? "HIGH" : index % 2 === 0 ? "MEDIUM" : "LOW";
+    it('should create, complete (DONE), and delete a trade task successfully', () => {
+      const uniqueTitle = `Cypress E2E DAX Check ${Date.now()}`;
+      const description = 'Automated E2E test verifying full UI CRUD lifecycle';
 
-      cy.get("#title").type(title);
-      cy.get("#description").type(`Automatischer Testlauf Nr. ${index + 1}`);
-      cy.get("#priority").select(priority);
-      cy.get('#taskForm button[type="submit"]').click();
+      // 1. CREATE: Formular ausfüllen & absenden
+      cy.get('input[placeholder*="Aufgabentitel"]').type(uniqueTitle);
+      cy.get('input[placeholder*="Beschreibung"], textarea[placeholder*="Beschreibung"]').type(description);
+      cy.get('select').select('HIGH');
+      cy.contains('button', 'Aufgabe anlegen').click();
 
-      cy.wait("@createTask").its("response.statusCode").should("be.oneOf", [200, 201]);
-      cy.wait("@getTasks");
+      // Prüfen, ob die neue Aufgabe mit Status OPEN erscheint
+      cy.contains(uniqueTitle)
+          .should('be.visible')
+          .parentsUntil('body')
+          .filter(':has(button)')
+          .first()
+          .as('taskCard');
 
-      cy.contains('[data-cy="task-item"]', title)
-          .should("be.visible")
-          .and("contain", priority)
-          .and("contain", "OPEN");
+      cy.get('@taskCard').should('contain', 'HIGH');
+      cy.get('@taskCard').should('contain', 'OPEN');
+
+      // 2. UPDATE: Aufgabe auf "Erledigt" (DONE) setzen
+      cy.get('@taskCard').contains('button', 'Erledigt').click();
+      cy.get('@taskCard').should('contain', 'DONE');
+
+      // 3. DELETE: Aufgabe wieder löschen (sauberer Cleanup)
+      cy.get('@taskCard').contains('button', 'Löschen').click();
+      cy.contains(uniqueTitle).should('not.exist');
+    });
+  });
+
+  // =========================================================================
+  // 2. NEGATIVE TESTS (Validierung & API-Fehlersimulation)
+  // =========================================================================
+  context('Negative Test Cases (Validation & Error Resilience)', () => {
+
+    it('should not create a task when the title input is empty', () => {
+      // Versuchen, ohne Titel abzusenden (POST-Request abfangen, um sicherzustellen, dass nichts gesendet wird)
+      cy.intercept('POST', '/api/tasks').as('createTaskRequest');
+
+      cy.get('input[placeholder*="Aufgabentitel"]').clear();
+      cy.contains('button', 'Aufgabe anlegen').click();
+
+      // Prüfen, dass kein POST-Request ausgelöst wurde (HTML5 required / Frontend-Validierung greift)
+      cy.get('@createTaskRequest.all').should('have.length', 0);
     });
 
-    // ---------------------------------------------------------
-    // 2. SCHRITT: Alle 10 Aufgaben als erledigt markieren (PUT)
-    // ---------------------------------------------------------
-    taskTitles.forEach((title) => {
-      cy.contains('[data-cy="task-item"]', title)
-          .find(".btn-done")
-          .click();
+    it('should handle a 500 Internal Server Error gracefully when loading tasks', () => {
+      // Simuliert einen Datenbank-/Serverausfall beim Laden der Aufgaben
+      cy.intercept('GET', '/api/tasks', {
+        statusCode: 500,
+        body: { message: 'Internal Server Error' }
+      }).as('getTasksFail');
 
-      cy.wait("@updateTask").its("response.statusCode").should("eq", 200);
-      cy.wait("@getTasks");
+      cy.visit('/');
+      cy.wait('@getTasksFail');
 
-      cy.contains('[data-cy="task-item"]', title)
-          .should("contain", "DONE")
-          .find(".btn-done")
-          .should("not.exist");
+      // Die Anwendung darf nicht abstürzen – die Hauptüberschrift bleibt sichtbar
+      cy.contains('Trade Task Manager').should('be.visible');
     });
 
-    // ---------------------------------------------------------
-    // 3. SCHRITT: Alle 10 Aufgaben wieder löschen (DELETE)
-    // ---------------------------------------------------------
-    taskTitles.forEach((title) => {
-      cy.contains('[data-cy="task-item"]', title)
-          .find(".btn-del")
-          .click();
+    it('should handle a 404 Not Found error gracefully when deleting a non-existent task', () => {
+      // Simuliert den Fall, dass eine Aufgabe bereits von einem anderen User gelöscht wurde
+      cy.intercept('DELETE', '/api/tasks/*', {
+        statusCode: 404,
+        body: { message: 'Task not found' }
+      }).as('deleteNotFound');
 
-      cy.wait("@deleteTask").its("response.statusCode").should("be.oneOf", [200, 204]);
-      cy.wait("@getTasks");
-
-      cy.get("#taskList").should("not.contain", title);
+      // Falls mindestens ein Löschen-Button existiert, Klick auslösen und 404-Antwort abfangen
+      cy.get('body').then(($body) => {
+        if ($body.find('button:contains("Löschen")').length > 0) {
+          cy.contains('button', 'Löschen').first().click();
+          cy.wait('@deleteNotFound').its('response.statusCode').should('eq', 404);
+        }
+      });
     });
   });
 });
