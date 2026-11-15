@@ -85,7 +85,7 @@ Executed in headless CLI mode via Docker (`80` concurrent CRUD requests, `0.00%`
 ![JMeter HTML Performance Report](docs/images/jmeter-report.png)
 
 ### GitHub Actions CI/CD Pipeline
-View all live pipeline runs and downloadable JMeter HTML report artifacts directly in the [**GitHub Actions Tab**](https://github.com).
+View all live pipeline runs and downloadable JMeter HTML report artifacts directly in the [**GitHub Actions Tab**](https://github.com/Yvanlos/trade-task-manager/actions).
 
 ![GitHub Actions Successful Run](docs/images/github-actions-success.png)
 
