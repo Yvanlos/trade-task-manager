@@ -1,9 +1,32 @@
 services:
   postgres:
-    image: 'postgres:latest'
+    image: postgres:16-alpine
+    container_name: trade-postgres
     environment:
-      - 'POSTGRES_DB=mydatabase'
-      - 'POSTGRES_PASSWORD=secret'
-      - 'POSTGRES_USER=myuser'
+      POSTGRES_DB: trade
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
     ports:
-      - '5432'
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  jmeter:
+    image: justb4/jmeter:latest
+    container_name: trade-jmeter
+    profiles:
+      - test
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: >
+      -n -t src/test/jmeter/trade-task-api-test.jmx
+      -JHOST=host.docker.internal
+      -JPORT=8080
+      -l target/jmeter-results.jtl
+      -e -o target/jmeter-report
+
+volumes:
+  postgres_data:

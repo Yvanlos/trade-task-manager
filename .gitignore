@@ -37,3 +37,10 @@ build/
 node_modules/
 cypress/videos/
 cypress/screenshots/
+
+# Build & Test Outputs
+target/
+
+# JMeter Logs & temporäre Testergebnisse
+jmeter.log
+*.jtl

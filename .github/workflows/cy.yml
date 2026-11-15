@@ -1,0 +1,107 @@
+name: Trade Task Manager CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    # 1. PostgreSQL-Datenbank für Integrationstests, Cypress & JMeter bereitstellen
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: trade
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/trade
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"
+
+    steps:
+      # 2. Code auschecken
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 3. Java 21 & Maven-Cache einrichten
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Grant execute permission for mvnw
+        run: chmod +x mvnw
+
+      # 4. Build + Unit- & PostgreSQL-SQL-Integrationstests ausführen
+      - name: Run Maven Build & DB Integration Tests
+        run: ./mvnw clean package
+
+      # 5. Spring Boot App im Hintergrund starten & Health-Check abwarten
+      - name: Start Spring Boot Application in background
+        run: |
+          nohup java -jar target/*.jar > app.log 2>&1 &
+          echo "Warte auf Start der Anwendung auf Port 8080..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8080/api/tasks > /dev/null; then
+              echo "Anwendung ist bereit!"
+              break
+            fi
+            sleep 2
+          done
+
+      # 6. Cypress E2E-Tests ausführen (falls package.json vorhanden)
+      - name: Run Cypress E2E Tests
+        if: hashFiles('package.json') != ''
+        uses: cypress-io/github-action@v6
+        with:
+          config: baseUrl=http://localhost:8080
+
+      # 7. JMeter API- & Lasttests im Non-GUI-Modus via Docker ausführen
+      - name: Run JMeter API Load Tests
+        if: hashFiles('src/test/jmeter/trade-task-api-test.jmx') != ''
+        run: |
+          mkdir -p target/jmeter-report
+          docker run --rm --network host \
+            -v "${{ github.workspace }}:/workspace" \
+            -w /workspace \
+            justb4/jmeter:latest \
+            -n -t src/test/jmeter/trade-task-api-test.jmx \
+            -JHOST=localhost -JPORT=8080 \
+            -l target/jmeter-results.jtl \
+            -e -o target/jmeter-report
+
+      # 8. JMeter Testergebnisse auf Fehler prüfen (Pipeline schlägt fehl, wenn Requests scheitern)
+      - name: Verify JMeter Results (0 Errors)
+        if: hashFiles('target/jmeter-results.jtl') != ''
+        run: |
+          if grep -q ",false," target/jmeter-results.jtl; then
+            echo "FEHLER: Mindestens ein JMeter API-Request ist fehlgeschlagen!"
+            cat target/jmeter-results.jtl
+            exit 1
+          else
+            echo "ERFOLG: Alle JMeter API-Requests ohne Fehler durchgelaufen!"
+          fi
+
+      # 9. JMeter HTML-Report als Artifact in GitHub speichern
+      - name: Upload JMeter HTML Report
+        if: always() && hashFiles('target/jmeter-report/index.html') != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: jmeter-performance-report
+          path: target/jmeter-report/

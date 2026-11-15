@@ -5,7 +5,10 @@ import com.yvanlos.trade_task_manager.repository.TradeTaskRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/tasks")
 @CrossOrigin(origins="*")
@@ -46,4 +49,22 @@ public class TradeTaskController {
         return ResponseEntity.noContent().build();
     }
 
+    //GET /api/tasks/search?keyword=DAX -> Nutzt native SQL-Query (ILIKE)
+    @GetMapping("/search")
+    public List<TradeTask> searchTasks(@RequestParam String keyword){
+        return repository.searchByTitleNative(keyword);
+    }
+
+    //GET /api/tasks/stats -> Nutzt native SQL-Query (GROUP BY + COUNT)
+    @GetMapping("/stats")
+    public Map<String, Long> getTaskStatistics(){
+        List<Object[]> results = repository.countTasksGroupedByStatusNative();
+        Map<String, Long> stats = new HashMap<>();
+        for (Object[] row : results){
+            String status = (String) row[0];
+            Long count = ((Number) row[1]).longValue();
+            stats.put(status, count);
+        }
+        return stats;
+    }
 }
