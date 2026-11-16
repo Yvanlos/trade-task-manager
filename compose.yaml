@@ -11,6 +11,31 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: trade-pgadmin
+    profiles:
+      - gui
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@local.de
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+  jmeter-gui:
+    image: guitarrapc/jmeter-gui:latest
+    container_name: trade-jmeter-gui
+    profiles:
+      - gui
+    ports:
+      - "8081:8080"
+    volumes:
+      - .:/root/jmeter
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   jmeter:
     image: justb4/jmeter:latest
     container_name: trade-jmeter
