@@ -29,12 +29,15 @@ services:
     container_name: trade-jmeter-gui
     profiles:
       - gui
+    stdin_open: true
+    tty: true
     ports:
       - "8081:8080"
     volumes:
       - .:/root/jmeter
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
 
   jmeter:
     image: justb4/jmeter:latest
